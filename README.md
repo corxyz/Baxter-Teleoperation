@@ -3,7 +3,7 @@ Code for remote data communication between Leap Motion and ROS (websocket)
 TODO: Code for Kinect motion tracking
 
 ## DEPENDENCIES
-* Python 2.7
+* Python 3.4
 * Tornado
 * Leap Motion SDK
 
