@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Live Cam</title>
+    <meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale = 1, user-scalable=no">
+
+	<!-- BS STYLE SHEET -->
+	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+	<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+</head>
+
+<body>
+	<div class = "screen">
+		<div class ="col-xs-6 cam" style = "background-color: pink">
+		<img src=http://10.0.0.128:8080/?action=stream></div>
+		<div class ="col-xs-6 cam" style = "background-color: yellow">
+		<img src=http://10.0.0.128:8090/?action=stream></div>
+	</div>
+</body>
+
+
+<style>
+
+	body{
+		width:100%; height:100%;
+		margin: 0; padding:0;
+		position: absolute; 
+
+		overflow: scroll;
+	}
+
+	div{
+		margin: 0;padding: 0; width: 100%;height: 100%; border-width: 0; 
+		overflow: scroll;
+	}
+	.screen{
+		position: absolute;
+	}
+	.cam{
+		
+		margin: 0;padding: 0; width: 100%;height: 100%; border-width: 0; 
+		width: 50%;
+		position: relative;
+
+		/*vertical-align:middle; text-align:center;*/
+	}
+	img{
+		position: relative;
+		top:50%;
+		left:50%;
+		/*transform: translateX(-50%);
+		transform: translateY(-50%);*/
+		transform: translate(-50%,-50%);
+	}
+
+
+</style>
+
+</html>
+
+

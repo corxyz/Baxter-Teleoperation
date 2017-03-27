@@ -1,0 +1,16 @@
+##### Start local tcp server > Computer ./Baxter-Teleoperation
+http-server ./
+
+##### Start mjpg_streamer > Raspberry Pi
+cd mjpg-streamer/mjpg-streamer-experimental
+
+<Left Eye>
+./mjpg_Streamer -i ./input_uvc.so -f -1 -r 640x480 -d /dev/video0 -n" -o "./output_http.so -w ./www -p 8080"
+<Right Eye>
+./mjpg_Streamer -i ./input_uvc.so -f -1 -r 640x480 -d /dev/video1 -n" -o "./output_http.so -w ./www -p 8090"
+
+##### Run VR.html > Computer ./Baxter-Teleoperation
+Double click vr.html
+
+##### Run VR > iPhone
+10.0.0.164:8080/vr.html
