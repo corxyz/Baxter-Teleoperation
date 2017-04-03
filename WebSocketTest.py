@@ -86,7 +86,7 @@ def main():
 	])
 
 	hs = HTTPServer(app)
-	hs.listen(8888, address="128.237.212.54")
+	hs.listen(8888, address="------")
 	IOLoop.instance().start()
 
 main()
