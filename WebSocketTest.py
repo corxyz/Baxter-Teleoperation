@@ -32,7 +32,7 @@ class LeapWSHandler(WebSocketHandler):
 		for hand in frame.hands:
 			handType = "Left hand" if hand.is_left else "Right hand"
 
-			print("  %s, id %d, position: %s" % (
+			s += ("  %s, id %d, position: %s" % (
 				handType, hand.id, hand.palm_position))
 
 			# Get the hand's normal vector and direction
@@ -58,7 +58,7 @@ class LeapWSHandler(WebSocketHandler):
 		# Have the sample listener receive events from the controller
 		LeapWSHandler.controller.add_listener(LeapWSHandler.listener)
 		LeapWSHandler.clients.append(self)
-		self.callback = PeriodicCallback(self.getLeapData, 500)
+		self.callback = PeriodicCallback(self.getLeapData, 100)
 		self.callback.start()
 
 	def on_message(self, message):
@@ -86,7 +86,7 @@ def main():
 	])
 
 	hs = HTTPServer(app)
-	hs.listen(8888)
+	hs.listen(8888, address="128.237.212.54")
 	IOLoop.instance().start()
 
 main()
