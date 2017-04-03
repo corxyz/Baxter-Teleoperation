@@ -35,21 +35,27 @@ class Client(object):
 
     @gen.coroutine
     def run(self):
+        c = 0
         while True:
+            c += 1
             #read message on websocket server
             msg = yield self.ws.read_message()
             if msg is None:
                 print("Connection closed.")
                 self.ws = None
                 break
-            d = json.loads(msg)
+            # 'prin'
             ## EDIT HERE
+            d = json.loads(msg)
+            pos = d['Right hand']
+            pos = list(map(float, pos[1:-1].split(",")))
+            print("RH" , pos);
             # SEE THE FORMAT OF THE msg then do something like
             # ex.move_x1 RIGHT, [0.0,0.0,0.05];
             # ex.move_x1 LEFT, [0.0,0.0,1.00];
             # Run(ex.move_x1, "RIGHT", d['right-hand']);
             # Run(ex.move_x1, "LEFT", d['left-hand']);
-            print(msg)
+            # print("MSG" + msg ,c)
 
     def tryAgain(self):
         if self.ws is None:
@@ -80,7 +86,7 @@ def Run(t):
             # moveArm("LEFT", d['Left hand'])
 
 if __name__ == "__main__":
-    client = Client("ws://128.237.212.54/ws", 5)
+    client = Client("ws://128.237.212.54:8888/ws", 5)
 
 
 

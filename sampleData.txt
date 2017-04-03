@@ -1,0 +1,4 @@
+Left hand, id 179, position: (-152.264, 271.897, 40.717)  pitch: 1.424788 degrees, roll: 47.958218 degrees, yaw: 15.171874 degrees
+  Arm direction: (0.86944, -0.03277, -0.492951), wrist position: (-172.241, 268.113, 85.8123), elbow position: (-384.51, 276.113, 206.163)
+Right hand, id 180, position: (33.9296, 264.756, 115.573)  pitch: 1.056057 degrees, roll: -2.868288 degrees, yaw: 7.967766 degrees
+  Arm direction: (0.350714, -0.132074, -0.927123), wrist position: (34.2013, 267.679, 170.2), elbow position: (-60.4915, 303.339, 420.523)
