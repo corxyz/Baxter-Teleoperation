@@ -32,25 +32,44 @@ class LeapWSHandler(WebSocketHandler):
 		for hand in frame.hands:
 			handType = "Left hand" if hand.is_left else "Right hand"
 
-			s += ("  %s, id %d, position: %s" % (
+			s += ("%s^%d^%s" % (
 				handType, hand.id, hand.palm_position))
-
 			# Get the hand's normal vector and direction
 			normal    = hand.palm_normal
 			direction = hand.direction
 
 			# Calculate the hand's pitch, roll, and yaw angles
-			s += ("  pitch: %f degrees, roll: %f degrees, yaw: %f degrees\n" % (
+			s += ("%f^%f^%f^" % (
 				direction.pitch * Leap.RAD_TO_DEG,
 				normal.roll     * Leap.RAD_TO_DEG,
 				direction.yaw   * Leap.RAD_TO_DEG))
 
 			# Get arm bone
 			arm = hand.arm
-			s += ("  Arm direction: %s, wrist position: %s, elbow position: %s\n" % (
+			s += ("%s^%s^%s^\n" % (
 				arm.direction,
 				arm.wrist_position,
 				arm.elbow_position))
+
+
+			# s += ("%s, id %d, position: %s" % (
+			# 	handType, hand.id, hand.palm_position))
+			# # Get the hand's normal vector and direction
+			# normal    = hand.palm_normal
+			# direction = hand.direction
+
+			# # Calculate the hand's pitch, roll, and yaw angles
+			# s += ("  pitch: %f degrees, roll: %f degrees, yaw: %f degrees\n" % (
+			# 	direction.pitch * Leap.RAD_TO_DEG,
+			# 	normal.roll     * Leap.RAD_TO_DEG,
+			# 	direction.yaw   * Leap.RAD_TO_DEG))
+
+			# # Get arm bone
+			# arm = hand.arm
+			# s += ("  Arm direction: %s, wrist position: %s, elbow position: %s\n" % (
+			# 	arm.direction,
+			# 	arm.wrist_position,
+			# 	arm.elbow_position))
 
 		return self.send_data(s)
 

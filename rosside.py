@@ -8,7 +8,7 @@ import json
 # from core_tool import *
 
 #ROS side data request
-d = {"left":1}
+pos = list();
 
 class Client(object):
     def __init__(self, url, timeout):
@@ -44,18 +44,12 @@ class Client(object):
                 print("Connection closed.")
                 self.ws = None
                 break
-            # 'prin'
-            ## EDIT HERE
-            d = json.loads(msg)
-            pos = d['Right hand']
-            pos = list(map(float, pos[1:-1].split(",")))
-            print("RH" , pos);
-            # SEE THE FORMAT OF THE msg then do something like
-            # ex.move_x1 RIGHT, [0.0,0.0,0.05];
-            # ex.move_x1 LEFT, [0.0,0.0,1.00];
-            # Run(ex.move_x1, "RIGHT", d['right-hand']);
-            # Run(ex.move_x1, "LEFT", d['left-hand']);
-            # print("MSG" + msg ,c)
+            #process message
+            if(msg != ""):
+                f = msg.split("^")
+                spos = f[2];
+                pos = list(map(float, spos[1:-1].split(",")))
+
 
     def tryAgain(self):
         if self.ws is None:
@@ -73,16 +67,12 @@ def Run(t):
     #     t.robot.MoveToX(x_trg, dt=4.0, arm=arm)
 
 
-    while(d):
-        if(d['right-hand'] != ""):
-            println("RIGHT HAND: "  + d['Right hand'])
-            pos = d['Right hand']
-            pos = list(map(float, pos[1:-1].split(",")))
+    while(len(pos) != 0):
+        if(pos[0] != "Right hand"):
+            println("RIGHT HAND: "  + d)
             # moveArm("RIGHT", d['Right hand'])
-        if(d['left-hand'] != ""):
-            pos = d['Left hand']
-            pos = list(map(float, pos[1:-1].split(",")))
-            println("LEFT: "  + d['Left hand'])
+        if(pos[0] != "Left hand"):
+            println("LEFT: "  + d)
             # moveArm("LEFT", d['Left hand'])
 
 if __name__ == "__main__":
