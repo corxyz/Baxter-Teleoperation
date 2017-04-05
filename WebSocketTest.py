@@ -29,25 +29,28 @@ class LeapWSHandler(WebSocketHandler):
                         handType = "Left hand" if hand.is_left else "Right hand"
 
                         pos = hand.palm_position
-                        #coordinate system convertion:
-                        #i. invert x-coordinate sign
-                        #ii. switch y- and z-coordinate
-                        s += ("%s^%d^%s" % (
-                                handType, hand.id, str((-pos.x, pos.z, pos.y))))
+                        #coordinate system convertion: (corrected)
+                        #i. leap (x+, y+, z+) -> ROS (y-, z, x-)
+                        s += ("%s^%d^%s^" % (
+                               handType, hand.id, str((-pos.z, -pos.x, pos.y))))
                         # Get the hand's normal vector and direction
                         normal    = hand.palm_normal
                         direction = hand.direction
 
+                        pitch = direction.pitch
+                        yaw = normal.roll
+                        roll = direction.yaw
+
                         # Calculate the hand's pitch, roll, and yaw angles
                         s += ("%f^%f^%f^" % (
-                                direction.pitch * Leap.RAD_TO_DEG,
-                                normal.roll     * Leap.RAD_TO_DEG,
-                                direction.yaw   * Leap.RAD_TO_DEG))
+                                pitch * Leap.RAD_TO_DEG,
+                                roll * Leap.RAD_TO_DEG,
+                                yaw * Leap.RAD_TO_DEG))
 
                         #NOTE: due to coordinate system conversion,
                         #pitch -> angle between negative x-axis and z-x projection
-                        #roll -> angle between positive z-axis and z-y projection
-                        #yaw -> angle between negative x-axis and x-y projection
+                        #yaw -> angle between positive z-axis and z-y projection
+                        #roll -> angle between negative x-axis and x-y projection
 
                         # Get arm bone
                         arm = hand.arm
@@ -55,9 +58,9 @@ class LeapWSHandler(WebSocketHandler):
                         wpos = arm.wrist_position
                         epos = arm.elbow_position
                         s += ("%s^%s^%s^\n" % (
-                                str(-direction.x, direction.z, direction.y),
-                                str(-wpos.x, wpos.z, wpos.y),
-                                str(-epos.x, epos.z, epos.y)))
+                                str(-direction.z, -direction.x, direction.y),
+                                str(-wpos.z, -wpos.x, wpos.y),
+                                str(-epos.z, -epos.x, epos.y)))
 
                 return self.send_data(s)
 
