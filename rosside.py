@@ -27,7 +27,6 @@ class Client(object):
             #client connect to websocket server
             self.ws = yield websocket_connect(self.url)
         except Exception as e:
-            # print()
             print("Connection error: " + str(e))
         else:
             print("Connected.")
@@ -77,8 +76,3 @@ def Run(t):
 
 if __name__ == "__main__":
     client = Client("ws://128.237.212.54:8888/ws", 5)
-
-
-
-
-
