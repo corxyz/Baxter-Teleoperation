@@ -77,9 +77,7 @@ class Client(object):
     @gen.coroutine
     def run(self):
         global pos
-        c = 0
         while True:
-            c += 1
             #read message on websocket server
             msg = yield self.ws.read_message()
             if msg is None:
