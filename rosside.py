@@ -9,7 +9,6 @@ import json
 import lib.defaultpos as dp
 import lib.base_geom as bg
 
-
 #ROS side data request
 pos = dict() #position info in the most recent frame of Leap
 bpos = dict() #position info in the most recent frame of Baxter
@@ -77,7 +76,9 @@ class Client(object):
     @gen.coroutine
     def run(self):
         global pos
+        c = 0
         while True:
+            c += 1
             #read message on websocket server
             msg = yield self.ws.read_message()
             if msg is None:
@@ -86,17 +87,17 @@ class Client(object):
                 break
             #process message
             if(msg != ""):
-                a = list(map(lambda x: x.split("^"), msg.splitlines())
+                a = list(map(lambda x: x.split("^"), msg.splitlines()))
                 if (a[0][0].startswith("Left")): l = a[0]
                 else: r = a[0]
                 if (len(a) > 1 and a[1][0].startswith("Right")): r = a[1]
-                else if (len(a) > 1): l = a[1]
+                elif (len(a) > 1): l = a[1]
                 #get absolute 3-d coordinates
                 pos["L"] = list(map(float, l[2][1:-1].split(",")))
                 pos["R"] = list(map(float, r[2][1:-1].split(",")))
                 #absolute Euler angles
                 (lang, rang) = ([l[2][4], l[2][3], l[2][5]],
-                                [r[2][4], r[2][3], r[2][5])
+                                [r[2][4], r[2][3], r[2][5]])
                 #pos["L"].append(lang)
                 #pos["R"].append(rang)
                 #transform Euler angles into Quaternion

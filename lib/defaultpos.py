@@ -1,5 +1,11 @@
 import math
-import Leap.InteractionBox as ib
+import sys
+sys.path.insert(0, '../')
+
+import Leap
+from SampleGiada import SampleListener
+
+ib = Leap.Controller().frame().interaction_box
 
 class DefaultPos(object):
 
@@ -7,8 +13,8 @@ class DefaultPos(object):
                 if (handType == "L"): c = 1
                 else: c = -1
                 self.x = 0
-                self.y = 30 * c
-                self.z = 20-ib.height/2 #bottom of the interaction box
+                self.y = 300 * c
+                self.z = 200-ib.height/2 #bottom of the interaction box
                 self.roll = 0
                 self.pitch = 0
                 self.yaw = 0
@@ -28,8 +34,8 @@ class BaxterDefaultPos(object):
                 if (handType == "L"): c = 1
                 else: c = -1
                 self.x = 0
-                self.y = 30 * 11 * c
-                self.z = (20-ib.height/2)*6.05
+                self.y = 300 * 11 * c
+                self.z = (200-ib.height/2)*6.05
                 self.roll = 0
                 self.pitch = 0
                 self.yaw = 0
