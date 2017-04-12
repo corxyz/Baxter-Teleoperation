@@ -139,9 +139,5 @@ def Run(t):
             from core_tool import *
             '''
 
-def Run(t,*args):
-  global bpos
-
-
 if __name__ == "__main__":
     client = Client("ws://127.0.0.1:8888/ws", 5)
