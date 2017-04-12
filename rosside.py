@@ -116,6 +116,10 @@ class Client(object):
 
 def Run(t):
     global pos
+    ql = t.robot.IK(bpos[“L”], arm=”LEFT”)
+    qr = t.robot.IK(bpos[“R”], arm=”RIGHT”)
+    print 'IK solution= {q}'.format(q=q)
+    
     # def moveArm(*args):
     #     arm= args[0]
     #     dp= args[1]
@@ -123,14 +127,21 @@ def Run(t):
     #     x_trg= [x[d]+dp[d] for d in range(3)] + x[3:]  #Target
     #     print 'Moving {arm}-arm to {x}'.format(arm=LRToStr(arm), x=x_trg)
     #     t.robot.MoveToX(x_trg, dt=4.0, arm=arm)
-
+'''
     while(len(pos) != 0):
+
         if(pos[0] != "Right hand"):
             println("RIGHT HAND: "  + d) #?
             # moveArm("RIGHT", d['Right hand'])
         if(pos[0] != "Left hand"):
             println("LEFT: "  + d)
             # moveArm("LEFT", d['Left hand'])
+            from core_tool import *
+            '''
+
+def Run(t,*args):
+  global bpos
+
 
 if __name__ == "__main__":
     client = Client("ws://127.0.0.1:8888/ws", 5)
