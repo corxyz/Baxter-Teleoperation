@@ -68,7 +68,7 @@ class LeapWSHandler(WebSocketHandler):
                 # Have the sample listener receive events from the controller
                 LeapWSHandler.controller.add_listener(LeapWSHandler.listener)
                 LeapWSHandler.clients.append(self)
-                self.callback = PeriodicCallback(self.getLeapData, 1000) #10fps
+                self.callback = PeriodicCallback(self.getLeapData, 1000) #1fps
                 self.callback.start()
 
         def on_message(self, message):

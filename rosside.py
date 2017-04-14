@@ -136,7 +136,7 @@ class Client(object):
 def initClient():
     global client
     if (client == None):
-        client = Client("ws://128.237.174.225:8888/ws", 5)
+        client = Client("ws://127.0.0.1:8888/ws", 5)
         print "client initlized.\n"
 
 def Run(t, *args):
