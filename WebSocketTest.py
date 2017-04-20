@@ -32,14 +32,14 @@ class LeapWSHandler(WebSocketHandler):
                         #coordinate system convertion: (corrected)
                         #i. leap (x+, y+, z+) -> ROS (y-, z, x-)
                         s += ("%s^%d^%s^" % (
-                               handType, hand.id, str((-pos.z, -pos.x, pos.y))))
+                               handType, hand.id, str((str(-pos.z), str(-pos.x), str(pos.y)))))
                         # Get the hand's normal vector and direction
                         normal    = hand.palm_normal
                         direction = hand.direction
 
                         pitch = direction.pitch
-                        yaw = normal.roll
-                        roll = direction.yaw
+                        roll = normal.roll
+                        yaw = direction.yaw
 
                         # Calculate the hand's pitch, roll, and yaw angles
                         s += ("%f^%f^%f^" % (
@@ -57,10 +57,11 @@ class LeapWSHandler(WebSocketHandler):
                         direction = arm.direction
                         wpos = arm.wrist_position
                         epos = arm.elbow_position
+                        a = (str(-direction.z), str(-direction.x), str(direction.y))
                         s += ("%s^%s^%s^\n" % (
-                                str(-direction.z, -direction.x, direction.y),
-                                str(-wpos.z, -wpos.x, wpos.y),
-                                str(-epos.z, -epos.x, epos.y)))
+                                str(a),
+                                str((str(-wpos.z), str(-wpos.x), str(wpos.y))),
+                                str((str(-epos.z), str(-epos.x), str(epos.y)))))
 
                 return self.send_data(s)
 
@@ -68,7 +69,7 @@ class LeapWSHandler(WebSocketHandler):
                 # Have the sample listener receive events from the controller
                 LeapWSHandler.controller.add_listener(LeapWSHandler.listener)
                 LeapWSHandler.clients.append(self)
-                self.callback = PeriodicCallback(self.getLeapData, 1000) #1fps
+                self.callback = PeriodicCallback(self.getLeapData, 500) #10fps
                 self.callback.start()
 
         def on_message(self, message):
@@ -96,7 +97,7 @@ def main():
         ])
 
         hs = HTTPServer(app)
-        hs.listen(8888, address="------")
+        hs.listen(8888, "128.237.182.62")
         IOLoop.instance().start()
 
 main()
