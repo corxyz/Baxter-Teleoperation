@@ -54,42 +54,94 @@ class Client(object):
             print("Connected.")
             self.run()
 
+    #def leap_to_baxter(self):
+        #global pos, bpos, pbpos
+        ##calculate delta_human
+        #current_l = pos["L"]
+        #default_l = [self.dl.x, self.dl.y, self.dl.z]
+        #default_l += numpy.ndarray.tolist(tf.transformations.quaternion_from_euler(self.dl.roll, self.dl.pitch, self.dl.yaw))
+        #delta_l = TransformRightInv(current_l, default_l) #type: list
+
+        #current_r = pos["R"]
+        #default_r = [self.dr.x, self.dr.y, self.dr.z]
+        #default_r += numpy.ndarray.tolist(tf.transformations.quaternion_from_euler(self.dr.roll, self.dr.pitch, self.dr.yaw))
+        #delta_r = TransformRightInv(current_r, default_r) #type: list
+
+        ##scale delta_human to delta_baxter
+        #bdelta_l = dp.BaxterDefaultPos.scaleToBaxter(delta_l)
+        #bdelta_r = dp.BaxterDefaultPos.scaleToBaxter(delta_r)
+
+        ##calculate delta_baxter
+        ##not sure if the order of arguments to base_geom.Transform is correct
+        ##bdefault_l = [self.bdl.x, self.bdl.y, self.bdl.z]
+        ##bdefault_l += numpy.ndarray.tolist(tf.transformations.quaternion_from_euler(self.bdl.roll, self.bdl.pitch, self.bdl.yaw))
+        
+        #baxter_l = Transform(bdelta_l, self.bdl)
+        
+
+        ##bdefault_r = [self.bdr.x, self.bdr.y, self.bdr.z]
+        ##bdefault_r += numpy.ndarray.tolist(tf.transformations.quaternion_from_euler(self.bdr.roll, self.bdr.pitch, self.bdr.yaw))
+        #baxter_r = Transform(bdelta_r, self.bdr)
+        #print bdelta_l, bdelta_r
+        #print baxter_l, baxter_r
+
+        ##update Baxter position to move to (pos_baxter)
+	#pbpos = copy.copy(bpos)
+        #bpos["L"] = baxter_l
+        #bpos["R"] = baxter_r
+        
     def leap_to_baxter(self):
-        global pos, bpos, pbpos
-        #calculate delta_human
+        global pos, bpos
+        bdl = self.bdl
+        bdr = self.bdr
+          
         current_l = pos["L"]
         default_l = [self.dl.x, self.dl.y, self.dl.z]
         default_l += numpy.ndarray.tolist(tf.transformations.quaternion_from_euler(self.dl.roll, self.dl.pitch, self.dl.yaw))
+        #
         delta_l = TransformRightInv(current_l, default_l) #type: list
 
         current_r = pos["R"]
         default_r = [self.dr.x, self.dr.y, self.dr.z]
         default_r += numpy.ndarray.tolist(tf.transformations.quaternion_from_euler(self.dr.roll, self.dr.pitch, self.dr.yaw))
         delta_r = TransformRightInv(current_r, default_r) #type: list
+          
+        deltaQ_l = delta_l[3:]
+        deltaQ_r = delta_r[3:]
+          
+        #print delta_l
+        #print delta_r
+        #print "Baxter: "
 
         #scale delta_human to delta_baxter
         bdelta_l = dp.BaxterDefaultPos.scaleToBaxter(delta_l)
         bdelta_r = dp.BaxterDefaultPos.scaleToBaxter(delta_r)
+          
+        bdelta_l = bdelta_l[:3] + RotToQ(Rodrigues(0.1*InvRodrigues(QToRot(bdelta_l[3:])))).tolist()
+        bdelta_r = bdelta_r[:3] + RotToQ(Rodrigues(0.1*InvRodrigues(QToRot(bdelta_r[3:])))).tolist()
 
         #calculate delta_baxter
         #not sure if the order of arguments to base_geom.Transform is correct
         #bdefault_l = [self.bdl.x, self.bdl.y, self.bdl.z]
         #bdefault_l += numpy.ndarray.tolist(tf.transformations.quaternion_from_euler(self.bdl.roll, self.bdl.pitch, self.bdl.yaw))
         
-        baxter_l = Transform(bdelta_l, self.bdl)
+        baxter_l = Transform(bdelta_l, bdl)
         
 
         #bdefault_r = [self.bdr.x, self.bdr.y, self.bdr.z]
         #bdefault_r += numpy.ndarray.tolist(tf.transformations.quaternion_from_euler(self.bdr.roll, self.bdr.pitch, self.bdr.yaw))
-        baxter_r = Transform(bdelta_r, self.bdr)
-        print bdelta_l, bdelta_r
-        print baxter_l, baxter_r
-
-        #update Baxter position to move to (pos_baxter)
-	pbpos = copy.copy(bpos)
+        baxter_r = Transform(bdelta_r, bdr)
+        #print bdelta_l, bdelta_r
+        #print baxter_l, baxter_r
+        
         bpos["L"] = baxter_l
         bpos["R"] = baxter_r
-
+        
+    def moveBaxter(self, ql, qr):
+        print "Baxter trying to move..."
+        if ql: self.t.robot.MoveToQ(numpy.ndarray.tolist(ql), dt=1.0, arm=LEFT)
+        if qr: self.t.robot.MoveToQ(numpy.ndarray.tolist(qr), dt=1.0, arm=RIGHT)
+        print "Baxter moved.\n"
 
     @gen.coroutine
     def run(self):
@@ -141,13 +193,16 @@ class Client(object):
                 rquat = numpy.ndarray.tolist(tf.transformations.quaternion_from_euler(rang[0], rang[1], rang[2]))
                 pos["L"] += lquat
                 pos["R"] += rquat
+                #print pos
                 self.leap_to_baxter()
                 print "************"
+                print pos
                 print bpos
 		ql = self.t.robot.IK(bpos["L"], arm=LEFT)
 		print "in move..."
 		qr = self.t.robot.IK(bpos["R"], arm=RIGHT)
 		print 'IK solution= {q1} {q2}'.format(q1=ql, q2=qr)
+                self.moveBaxter(ql, qr)
             else:
 	        print 'no msg'
 
@@ -157,17 +212,11 @@ class Client(object):
             print("Lost connection. Trying to reconnect now...")
             self.connect()
 
-def bpos_is_changed():
-    global bpos, pbpos
-    if (bpos["L"] != pbpos["L"]): return True
-    elif (bpos["R"] != pbpos["R"]): return True
-    else: return False
-
 def initClient(t):
-    global client
+    global client, pos
     print "initClient"
     if (client == None):
-	client = Client("ws://128.237.182.62:8888/ws", 5, t)
+	client = Client("ws://128.237.187.219:8888/ws", 5, t)
 	print "client initlized.\n"
     
 """
@@ -196,56 +245,70 @@ def Run(t):
     #ql = t.robot.IK(bpos["L"], arm="LEFT")
     #qr = t.robot.IK(bpos["R"], arm="RIGHT")
     #print 'IK solution= {q}'.format(q=q)
+    
 
-def Run(t, *args):
-        #global pos, bpos, pbpos
-        #calculate delta_human
-        if len(args) >= 2:
-	  bdl = t.robot.FK(arm=LEFT)
-	  bdr = t.robot.FK(arm=RIGHT)
+#def Run(t, *args):
+        ##global pos, bpos, pbpos
+        ##calculate delta_human
+        #if len(args) >= 2:
+	  #bdl = t.robot.FK(arm=LEFT)
+	  #bdr = t.robot.FK(arm=RIGHT)
 	  
-	  current_l = args[0]
-	  default_l = [0.0, 0.03, 0.0175]
-	  default_l += numpy.ndarray.tolist(tf.transformations.quaternion_from_euler(0.0, 0.0, 0.0))
-	  delta_l = TransformRightInv(current_l, default_l) #type: list
+	  #current_l = args[0]
+	  #default_l = [0.0, 0.03, 0.0175]
+	  #default_l += numpy.ndarray.tolist(tf.transformations.quaternion_from_euler(0.0, 0.0, 0.0))
+	  #delta_l = TransformRightInv(current_l, default_l) #type: list
 
-	  current_r = args[1]
-	  default_r = [0.0, -0.03, 0.0175]
-	  default_r += numpy.ndarray.tolist(tf.transformations.quaternion_from_euler(0.0, 0.0, 0.0))
-	  delta_r = TransformRightInv(current_r, default_r) #type: list
+	  #current_r = args[1]
+	  #default_r = [0.0, -0.03, 0.0175]
+	  #default_r += numpy.ndarray.tolist(tf.transformations.quaternion_from_euler(0.0, 0.0, 0.0))
+	  #delta_r = TransformRightInv(current_r, default_r) #type: list
 	  
-	  deltaQ_l = delta_l[3:]
-	  deltaQ_r = delta_r[3:]
+	  #deltaQ_l = delta_l[3:]
+	  #deltaQ_r = delta_r[3:]
 	  
-	  print delta_l
-	  print delta_r
-	  print "Baxter: "
+	  #print delta_l
+	  #print delta_r
+	  #print "Baxter: "
 
-        #scale delta_human to delta_baxter
-	  bdelta_l = dp.BaxterDefaultPos.scaleToBaxter(delta_l)
-	  bdelta_r = dp.BaxterDefaultPos.scaleToBaxter(delta_r)
+        ##scale delta_human to delta_baxter
+	  #bdelta_l = dp.BaxterDefaultPos.scaleToBaxter(delta_l)
+	  #bdelta_r = dp.BaxterDefaultPos.scaleToBaxter(delta_r)
 	  
-	  bdelta_l = bdelta_l[:3] + RotToQ(Rodrigues(0.1*InvRodrigues(QToRot(bdelta_l[3:])))).tolist()
-	  bdelta_r = bdelta_r[:3] + RotToQ(Rodrigues(0.1*InvRodrigues(QToRot(bdelta_r[3:])))).tolist()
+	  #bdelta_l = bdelta_l[:3] + RotToQ(Rodrigues(0.1*InvRodrigues(QToRot(bdelta_l[3:])))).tolist()
+	  #bdelta_r = bdelta_r[:3] + RotToQ(Rodrigues(0.1*InvRodrigues(QToRot(bdelta_r[3:])))).tolist()
 
-        #calculate delta_baxter
-        #not sure if the order of arguments to base_geom.Transform is correct
-        #bdefault_l = [self.bdl.x, self.bdl.y, self.bdl.z]
-        #bdefault_l += numpy.ndarray.tolist(tf.transformations.quaternion_from_euler(self.bdl.roll, self.bdl.pitch, self.bdl.yaw))
+        ##calculate delta_baxter
+        ##not sure if the order of arguments to base_geom.Transform is correct
+        ##bdefault_l = [self.bdl.x, self.bdl.y, self.bdl.z]
+        ##bdefault_l += numpy.ndarray.tolist(tf.transformations.quaternion_from_euler(self.bdl.roll, self.bdl.pitch, self.bdl.yaw))
         
-	  baxter_l = Transform(bdelta_l, bdl)
+	  #baxter_l = Transform(bdelta_l, bdl)
         
 
-        #bdefault_r = [self.bdr.x, self.bdr.y, self.bdr.z]
-        #bdefault_r += numpy.ndarray.tolist(tf.transformations.quaternion_from_euler(self.bdr.roll, self.bdr.pitch, self.bdr.yaw))
-	  baxter_r = Transform(bdelta_r, bdr)
-	  print bdelta_l, bdelta_r
-	  print baxter_l, baxter_r
+        ##bdefault_r = [self.bdr.x, self.bdr.y, self.bdr.z]
+        ##bdefault_r += numpy.ndarray.tolist(tf.transformations.quaternion_from_euler(self.bdr.roll, self.bdr.pitch, self.bdr.yaw))
+	  #baxter_r = Transform(bdelta_r, bdr)
+	  #print bdelta_l, bdelta_r
+	  #print baxter_l, baxter_r
 	  
-	  print "*****************"
-	  ql = t.robot.IK(baxter_l, arm=LEFT)
-	  qr = t.robot.IK(baxter_r, arm=RIGHT)
-	  print 'IK solution= {q1} {q2}'.format(q1=ql, q2=qr)
+	  #print "*****************"
+	  #ql = t.robot.IK(baxter_l, arm=LEFT)
+	  #qr = t.robot.IK(baxter_r, arm=RIGHT)
+	  #print 'IK solution= {q1} {q2}'.format(q1=ql, q2=qr)
+	  
+	  
+	  
+	  
+	  
+	  
+	  
+	  
+	  
+	  
+	  
+	  
+	  
         #update Baxter position to move to (pos_baxter)
 	#pbpos = copy.copy(bpos)
         #bpos["L"] = baxter_l
