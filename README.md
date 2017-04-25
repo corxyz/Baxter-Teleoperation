@@ -41,4 +41,4 @@ Run `WebSocketTest.py` first on the server computer and then `rosside.py` and/or
 * **04/09** Tentative data translation from Leap Motion to ROS
 * **04/14** Completed preliminary integration of Leap Motion and Baxter
 * **04/20** Tested gesture mapping on a small scale
-* ** 04/24** Working demo. Need to improve precision and eliminate noise.
+* **04/24** Working demo. Need to improve precision and eliminate noise.
