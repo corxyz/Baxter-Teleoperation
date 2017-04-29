@@ -32,20 +32,20 @@ class LeapWSHandler(WebSocketHandler):
                         #coordinate system convertion: (corrected)
                         #i. leap (x+, y+, z+) -> ROS (y-, z, x-)
                         s += ("%s^%d^%s^" % (
-                               handType, hand.id, str((str(-pos.z), str(-pos.x), str(pos.y)))))
+                               handType, hand.id, str((-pos.z, -pos.x, pos.y))))
                         # Get the hand's normal vector and direction
                         normal    = hand.palm_normal
                         direction = hand.direction
 
                         pitch = direction.pitch
-                        roll = normal.roll
-                        yaw = direction.yaw
+                        yaw = normal.roll
+                        roll = direction.yaw
 
                         # Calculate the hand's pitch, roll, and yaw angles
                         s += ("%f^%f^%f^" % (
-                                pitch * Leap.RAD_TO_DEG,
-                                roll * Leap.RAD_TO_DEG,
-                                yaw * Leap.RAD_TO_DEG))
+                                pitch,
+                                roll,
+                                yaw))
 
                         #NOTE: due to coordinate system conversion,
                         #pitch -> angle between negative x-axis and z-x projection
@@ -57,11 +57,10 @@ class LeapWSHandler(WebSocketHandler):
                         direction = arm.direction
                         wpos = arm.wrist_position
                         epos = arm.elbow_position
-                        a = (str(-direction.z), str(-direction.x), str(direction.y))
                         s += ("%s^%s^%s^\n" % (
-                                str(a),
-                                str((str(-wpos.z), str(-wpos.x), str(wpos.y))),
-                                str((str(-epos.z), str(-epos.x), str(epos.y)))))
+                                str(-direction.z, -direction.x, direction.y),
+                                str(-wpos.z, -wpos.x, wpos.y),
+                                str(-epos.z, -epos.x, epos.y)))
 
                 return self.send_data(s)
 
@@ -69,7 +68,7 @@ class LeapWSHandler(WebSocketHandler):
                 # Have the sample listener receive events from the controller
                 LeapWSHandler.controller.add_listener(LeapWSHandler.listener)
                 LeapWSHandler.clients.append(self)
-                self.callback = PeriodicCallback(self.getLeapData, 500) #10fps
+                self.callback = PeriodicCallback(self.getLeapData, 1000) #10fps
                 self.callback.start()
 
         def on_message(self, message):
@@ -97,7 +96,7 @@ def main():
         ])
 
         hs = HTTPServer(app)
-        hs.listen(8888, "128.237.182.62")
+        hs.listen(8888, address="------")
         IOLoop.instance().start()
 
 main()

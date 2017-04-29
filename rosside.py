@@ -6,19 +6,34 @@ from tornado.websocket import websocket_connect
 # import ROS
 import json
 from core_tool import *
-import defaultpos as dp
-reload(dp)
 import tf
 import numpy
 import copy
-from threading import Thread
+#from threading import Thread
 #import base_geom as base_geom
 
 #ROS side data request
-pos = {"L":[.2, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0], "R":[-.2, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]}  #position info in the most recent frame of Leap
-bpos = {"L":[.2, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0], "R":[-.2, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]} #position info in the most recent frame of Baxter
+#position info in the most recent frame of Leap
+
+pos = {"L":[-.056424434661865234,0.08955266571044922, 0.1807218780517578, \
+            0.0, 0.0, 0.0, 1.0], 
+       "R":[-0.07449254608154297, -0.1174264907836914, 0.19524444580078125, \
+            0.0, 0.0, 0.0, 1.0]} 
+#position info in the most recent frame of Baxterb
+
+
+bpos = {"L":[0.4795606784002749, 0.568933407474859, 0.18754802195350023, \
+             0.05045439425577075, 0.7321941859790739, -0.05684833045624352, \
+             0.6768414108512136], 
+        "R":[0.44889235508456976, -0.6404624981274808, 0.19186524586206288, \
+            -0.09562397715077178, 0.7314424103831731, 0.0018074254860270165,
+             0.6751627866669149]
+        }
+
 pbpos = copy.copy(bpos)
 client = None
+
+justonce = 0
 
 class Client(object):
     def __init__(self, url, timeout, t):
@@ -27,20 +42,69 @@ class Client(object):
         self.ioloop = IOLoop.instance()
         self.ws = None
         self.connect()
-        self.dl = dp.DefaultPos() #default left hand position
-        self.dr = dp.DefaultPos("R") #default right hand position
+        self.dl = copy.copy(pos["L"]) #default left hand position
+        self.dr = copy.copy(pos["R"]) #default right hand position
         #self.bdl = dp.BaxterDefaultPos() #Baxter default left hand position
         #self.bdr = dp.BaxterDefaultPos("R") #Baxter default right hand position
-        self.bdl = t.robot.FK(arm=LEFT)
-        self.bdr = t.robot.FK(arm=RIGHT)
+        #self.bdl = t.robot.FK(arm=LEFT)
+        #self.bdr = t.robot.FK(arm=RIGHT)
         self.t = t
+        self.bdl = copy.copy(bpos["L"])
+        self.bdr = copy.copy(bpos["R"])
+        #self.moveToDefault()
         global pos, bpos
         #pos["L"] = pos["R"] = bpos["L"] = bpos["R"] = []
         print bpos
         PeriodicCallback(self.tryAgain, 20000, io_loop=self.ioloop).start()
         print 'callback started\n'
         self.ioloop.start()
-        print 'init finish\n'
+        #print 'init finish\n'
+    
+    def moveToDefault(self):
+        print "Moved to default:"
+        x = list(self.t.robot.FK(arm=LEFT)) 
+        xc = x[0] - self.bdl[0]
+        yc = x[1] - self.bdl[1]
+        zc = x[2] - self.bdl[2]
+        dt = max(abs(xc/0.05), abs(yc/0.05), abs(zc/0.05))
+        dx = xc/dt
+        dy = yc/dt
+        dz = zc/dt
+        x_traj = [None] * (int(dt+2))
+        x_traj[0] = x
+        for i in range(1, int(dt+2)):
+          x_traj[i] = [x[0] - dx * i, x[1] - dy * i, x[2] - dz * i] + x[3:]
+        if (x_traj[-1] == None): x_traj = x_traj[:-1]
+        if (x_traj[-1] == None): x_traj = x_traj[:-1]
+        t_traj= [i * 2.0 for i in rarnge(len(x_traj))]
+        #print x_traj
+
+        c = x_traj
+        #te = [i *2.0 for i in range(len(c))]
+        te = [(i+1) *2.0 for i in range(len(c))]
+        print 'FollowXTraj',c, te
+        self.t.robot.FollowXTraj(c, te, x_ext = None, arm=LEFT, blocking=False)
+        
+        
+        x = list(self.t.robot.FK(arm=RIGHT)) 
+        xc = x[0] - self.bdr[0]
+        yc = x[1] - self.bdr[1]
+        zc = x[2] - self.bdr[2]
+        dt = max(abs(xc/0.05), abs(yc/0.05), abs(zc/0.05))
+        dx = xc/dt
+        dy = yc/dt
+        dz = zc/dt
+        x_traj = [None] * (int(dt+2))
+        x_traj[0] = x
+        for i in range(1, int(dt+1)):
+          x_traj[i] = [x[0] - dx * i, x[1] - dy * i, x[2] - dz * i] + x[3:]
+        if (x_traj[-1] == None): x_traj = x_traj[:-1]
+        t_traj= [i * 2.0 for i in range(len(x_traj))]
+        print x_traj
+
+        c = x_traj
+        te = [i *2.0 for i in range(len(c))]
+        self.t.robot.FollowXTraj(c, te, x_ext = None, arm=RIGHT, blocking=False)
 
     @gen.coroutine
     def connect(self):
@@ -53,159 +117,192 @@ class Client(object):
         else:
             print("Connected.")
             self.run()
+        #finally:
+            #self.ioloop.stop()
+            #self.ioloop.close()
 
-    #def leap_to_baxter(self):
-        #global pos, bpos, pbpos
-        ##calculate delta_human
-        #current_l = pos["L"]
-        #default_l = [self.dl.x, self.dl.y, self.dl.z]
-        #default_l += numpy.ndarray.tolist(tf.transformations.quaternion_from_euler(self.dl.roll, self.dl.pitch, self.dl.yaw))
-        #delta_l = TransformRightInv(current_l, default_l) #type: list
+    def parseLeapLeft(self, l):
+        global pos
+        #get absolute 3-d coordinates
+        if (len(l) > 2): 
+            a = l[2][1:-1].split(",")
+            for i in range(len(a)): 
+                if (i == 0): a[i] = float(a[i].encode("ascii")[1:-1]) / 1000.0
+                else: a[i] = float(a[i].encode("ascii")[2:-1]) / 1000.0
+            pos["L"] = copy.copy(a)
+        else: pos["L"] = [0.0, 0.0, 0.0]
+        #absolute Euler angles
+        if (len(l) > 5): 
+            lang = [float(l[4].encode("ascii")), float(l[3].encode("ascii")), \
+                    float(l[5].encode("ascii"))]
+        else: lang = [0.0, 0.0, 0.0]
+        #transform Euler angles into Quaternion
+        lquat = numpy.ndarray.tolist(tf.transformations.quaternion_from_euler(
+            lang[0], lang[1], lang[2]))
+        pos["L"] += lquat
 
-        #current_r = pos["R"]
-        #default_r = [self.dr.x, self.dr.y, self.dr.z]
-        #default_r += numpy.ndarray.tolist(tf.transformations.quaternion_from_euler(self.dr.roll, self.dr.pitch, self.dr.yaw))
-        #delta_r = TransformRightInv(current_r, default_r) #type: list
-
-        ##scale delta_human to delta_baxter
-        #bdelta_l = dp.BaxterDefaultPos.scaleToBaxter(delta_l)
-        #bdelta_r = dp.BaxterDefaultPos.scaleToBaxter(delta_r)
-
-        ##calculate delta_baxter
-        ##not sure if the order of arguments to base_geom.Transform is correct
-        ##bdefault_l = [self.bdl.x, self.bdl.y, self.bdl.z]
-        ##bdefault_l += numpy.ndarray.tolist(tf.transformations.quaternion_from_euler(self.bdl.roll, self.bdl.pitch, self.bdl.yaw))
+    def parseLeapRight(self, r):
+        global pos
+        #get absolute 3-d coordinates
+        if (len(r) > 2): 
+            a = r[2][1:-1].split(",")
+            for i in range(len(a)): 
+                if (i == 0): a[i] = float(a[i].encode("ascii")[1:-1]) / 1000.0
+                else: a[i] = float(a[i].encode("ascii")[2:-1]) / 1000.0
+            pos["R"] = copy.copy(a)
+        else: 
+            pos["R"] = [0.0, 0.0, 0.0]        
+        #absolute Euler angles
+        if (len(r) > 5): 
+            rang = [float(r[4].encode("ascii")), float(r[3].encode("ascii")), \
+                    float(r[5].encode("ascii"))]
+        else: rang = [0.0, 0.0, 0.0]
+        #transform Euler angles into Quaternion
+        rquat = numpy.ndarray.tolist(tf.transformations.quaternion_from_euler(
+            rang[0], rang[1], rang[2]))
+        pos["R"] += rquat
         
-        #baxter_l = Transform(bdelta_l, self.bdl)
-        
+    def scaleToBaxter(self,delta):
+        #print "delta0: "
+        #print delta
+        newx = delta[0] *0.8
+        newy = delta[1]*0.8
+        newz = delta[2]*0.8
+        print delta[2], newz
+        bdelta = [newx, newy, newz]
+        bdelta += delta[3:]
+        #print "bdelta: "
+        #print bdelta
+        return bdelta
 
-        ##bdefault_r = [self.bdr.x, self.bdr.y, self.bdr.z]
-        ##bdefault_r += numpy.ndarray.tolist(tf.transformations.quaternion_from_euler(self.bdr.roll, self.bdr.pitch, self.bdr.yaw))
-        #baxter_r = Transform(bdelta_r, self.bdr)
-        #print bdelta_l, bdelta_r
-        #print baxter_l, baxter_r
-
-        ##update Baxter position to move to (pos_baxter)
-	#pbpos = copy.copy(bpos)
-        #bpos["L"] = baxter_l
-        #bpos["R"] = baxter_r
+    def parseLeapData(self, msg):
+        global pos
+        a = list(map(lambda x: x.split("^"), msg.splitlines()))
+        l = r = []
+        lang = rang = []
+        if (a[0][0].startswith("Left")): l = a[0]
+        else: r = a[0]
+        if (len(a) > 1 and a[1][0].startswith("Right")): r = a[1]
+        elif (len(a) > 1): l = a[1]
+        #get absolute 3-d coordinates
+        self.parseLeapLeft(l)
+        self.parseLeapRight(r)
+        print pos
         
+    def renewDefault(self):
+        global pos
+        self.dl = pos["L"]
+        self.dr = pos["R"]
+     
     def leap_to_baxter(self):
         global pos, bpos
         bdl = self.bdl
         bdr = self.bdr
+        
+        print bdl, bdr
           
         current_l = pos["L"]
-        default_l = [self.dl.x, self.dl.y, self.dl.z]
-        default_l += numpy.ndarray.tolist(tf.transformations.quaternion_from_euler(self.dl.roll, self.dl.pitch, self.dl.yaw))
-        #
+        default_l = self.dl
         delta_l = TransformRightInv(current_l, default_l) #type: list
 
         current_r = pos["R"]
-        default_r = [self.dr.x, self.dr.y, self.dr.z]
-        default_r += numpy.ndarray.tolist(tf.transformations.quaternion_from_euler(self.dr.roll, self.dr.pitch, self.dr.yaw))
+        default_r = self.dr
         delta_r = TransformRightInv(current_r, default_r) #type: list
           
-        deltaQ_l = delta_l[3:]
-        deltaQ_r = delta_r[3:]
-          
-        #print delta_l
-        #print delta_r
-        #print "Baxter: "
+        print current_l, current_r  
+        print delta_l
+        print delta_r
+        print "Baxter: "
 
         #scale delta_human to delta_baxter
-        bdelta_l = dp.BaxterDefaultPos.scaleToBaxter(delta_l)
-        bdelta_r = dp.BaxterDefaultPos.scaleToBaxter(delta_r)
-          
-        bdelta_l = bdelta_l[:3] + RotToQ(Rodrigues(0.1*InvRodrigues(QToRot(bdelta_l[3:])))).tolist()
-        bdelta_r = bdelta_r[:3] + RotToQ(Rodrigues(0.1*InvRodrigues(QToRot(bdelta_r[3:])))).tolist()
-
-        #calculate delta_baxter
-        #not sure if the order of arguments to base_geom.Transform is correct
-        #bdefault_l = [self.bdl.x, self.bdl.y, self.bdl.z]
-        #bdefault_l += numpy.ndarray.tolist(tf.transformations.quaternion_from_euler(self.bdl.roll, self.bdl.pitch, self.bdl.yaw))
+        bdelta_l = self.scaleToBaxter(delta_l)
+        bdelta_r = self.scaleToBaxter(delta_r)
+        self.t.viz.test.AddCube(current_r, [0.2,0.1,0.3], 
+            rgb=self.t.viz.test.ICol(0), alpha=0.5, mid=2)
+        
+        #calculate rotation angles in delta_baxter
+        bdelta_l = bdelta_l[:3] + RotToQ(Rodrigues(0.1*InvRodrigues(QToRot(
+            bdelta_l[3:])))).tolist()
+        bdelta_r = bdelta_r[:3] + RotToQ(Rodrigues(0.1*InvRodrigues(QToRot(
+            bdelta_r[3:])))).tolist()
+        #bdelta_l[3:]= [0.0,0.0,0.0,1.0]
+        #bdelta_r[3:]= [0.0,0.0,0.0,1.0]
+        
+        print "bdelta:"
+        print bdelta_l, bdelta_r
         
         baxter_l = Transform(bdelta_l, bdl)
-        
-
-        #bdefault_r = [self.bdr.x, self.bdr.y, self.bdr.z]
-        #bdefault_r += numpy.ndarray.tolist(tf.transformations.quaternion_from_euler(self.bdr.roll, self.bdr.pitch, self.bdr.yaw))
         baxter_r = Transform(bdelta_r, bdr)
-        #print bdelta_l, bdelta_r
-        #print baxter_l, baxter_r
+        print bdelta_l, bdelta_r
+        print baxter_l, baxter_r
         
         bpos["L"] = baxter_l
         bpos["R"] = baxter_r
-        
-    def moveBaxter(self, ql, qr):
-        print "Baxter trying to move..."
-        if ql: self.t.robot.MoveToQ(numpy.ndarray.tolist(ql), dt=1.0, arm=LEFT)
-        if qr: self.t.robot.MoveToQ(numpy.ndarray.tolist(qr), dt=1.0, arm=RIGHT)
-        print "Baxter moved.\n"
 
+    def solveIK(self):
+        global bpos
+        print "Trying to solve IK..."
+        ql = self.t.robot.IK(bpos["L"], arm=LEFT)
+        print "in move..."
+        qr = self.t.robot.IK(bpos["R"], arm=RIGHT)
+        print 'IK solution= {q1} {q2}'.format(q1=ql, q2=qr)
+        if ql is not None:
+            dqth= 0.1
+            ql0= self.t.robot.Q(arm=LEFT)
+            dqmax= max([abs(q1-q0) for q1,q0 in zip(ql,ql0)])
+            if dqmax>dqth:  ql= [q0+(q1-q0)*dqth/dqmax for q1,q0 in zip(ql,ql0)]
+        if qr is not None:
+            dqth= 0.1
+            qr0= self.t.robot.Q(arm=RIGHT)
+            dqmax= max([abs(q1-q0) for q1,q0 in zip(qr,qr0)])
+            if dqmax>dqth:  qr= [q0+(q1-q0)*dqth/dqmax for q1,q0 in zip(qr,qr0)]
+        return (ql, qr) 
+
+    def moveBaxter(self, ql, qr):
+        if ql != None: self.t.robot.MoveToQ(ql, dt=0.01, arm=LEFT)
+        if qr != None: self.t.robot.MoveToQ(qr, dt=0.01, arm=RIGHT)
+    
     @gen.coroutine
     def run(self):
         global pos, bpos
-        c = 0
-        while True:
-            c += 1
-            print "aaa"
-            #read message on websocket server
-            msg = yield self.ws.read_message()
-            if msg is None:
-                print("Connection closed.")
-                self.ws = None
-                break
-            #process message
-            if(msg != ""):
-		print msg
-                a = list(map(lambda x: x.split("^"), msg.splitlines()))
-                l = r = []
-                lang = rang = []
-                if (a[0][0].startswith("Left")): l = a[0]
-                else: r = a[0]
-                if (len(a) > 1 and a[1][0].startswith("Right")): r = a[1]
-                elif (len(a) > 1): l = a[1]
-                #get absolute 3-d coordinates
-                if (len(l) > 2): 
-		  a = l[2][1:-1].split(",")
-		  for i in range(len(a)): 
-		    if (i == 0): a[i] = float(a[i].encode("ascii")[1:-1])
-		    else: a[i] = float(a[i].encode("ascii")[2:-1])
-		  pos["L"] = copy.copy(a)
-		else: pos["L"] = [0.0, 0.0, 0.0]
-                if (len(r) > 2): 
-		  a = r[2][1:-1].split(",")
-		  for i in range(len(a)): 
-		    if (i == 0): a[i] = float(a[i].encode("ascii")[1:-1])
-		    else: a[i] = float(a[i].encode("ascii")[2:-1])
-		  pos["R"] = copy.copy(a)
-		else: pos["R"] = [0.0, 0.0, 0.0]
-                #absolute Euler angles
-                if (len(l) > 5): lang = [float(l[4].encode("ascii")), float(l[3].encode("ascii")), float(l[5].encode("ascii"))]
-                else: lang = [0.0, 0.0, 0.0]
-                if (len(r) > 5): rang = [float(r[4].encode("ascii")), float(r[3].encode("ascii")), float(r[5].encode("ascii"))]
-                else: rang = [0.0, 0.0, 0.0]
-                #pos["L"].append(lang)
-                #pos["R"].append(rang)
-                #transform Euler angles into Quaternion
-                lquat = numpy.ndarray.tolist(tf.transformations.quaternion_from_euler(lang[0], lang[1], lang[2]))
-                rquat = numpy.ndarray.tolist(tf.transformations.quaternion_from_euler(rang[0], rang[1], rang[2]))
-                pos["L"] += lquat
-                pos["R"] += rquat
-                #print pos
-                self.leap_to_baxter()
-                print "************"
-                print pos
-                print bpos
-		ql = self.t.robot.IK(bpos["L"], arm=LEFT)
-		print "in move..."
-		qr = self.t.robot.IK(bpos["R"], arm=RIGHT)
-		print 'IK solution= {q1} {q2}'.format(q1=ql, q2=qr)
-                self.moveBaxter(ql, qr)
-            else:
-	        print 'no msg'
-
+        #c = 0
+        self.t.kbhit.Activate()
+        try:
+            while True:
+                if self.t.kbhit.IsActive():
+                    key= self.t.kbhit.KBHit()
+                    if key=='q':
+                        break;
+                else:
+                    break
+                print "aaa"
+                #read message on websocket server
+                msg = yield self.ws.read_message()
+                if msg is None:
+                    print("Connection closed.")
+                    self.ws = None
+                    break
+                #process message
+                elif(msg != ""):
+                    #c += 1
+                    print msg
+                    self.parseLeapData(msg)
+                    self.leap_to_baxter()
+                    print "************"
+                    print pos
+                    print bpos
+                    self.t.viz.test.AddCube(bpos["L"], [0.2,0.1,0.3], 
+                        rgb=self.t.viz.test.ICol(2), alpha=0.5, mid=0)
+                    self.t.viz.test.AddCube(bpos["R"], [0.2,0.1,0.3], 
+                        rgb=self.t.viz.test.ICol(2), alpha=0.5, mid=1)
+                    (ql, qr) = self.solveIK()
+                    self.moveBaxter(ql, qr)
+                else:
+                    print 'no msg'
+        finally:
+            self.t.kbhit.Deactivate()
+            #self.ioloop.stop()
+            #self.ioloop.close()
 
     def tryAgain(self):
         if self.ws is None:
@@ -216,119 +313,12 @@ def initClient(t):
     global client, pos
     print "initClient"
     if (client == None):
-	client = Client("ws://128.237.187.219:8888/ws", 5, t)
-	print "client initlized.\n"
-    
-"""
-def move(t):
-    global pos, bpos, count
-    print "trying to move (really hard)..."
-    print pos, bpos
-    while bpos:
-      ql = t.robot.IK(bpos["L"], arm=LEFT)
-      print "in move..."
-      qr = t.robot.IK(bpos["R"], arm=RIGHT)
-      print 'IK solution= {q1} {q2}'.format(q1=ql, q2=qr)
-    return True
-    """
+        client = Client("ws://128.237.200.198:8888/ws", 5, t)
+        print "client initlized.\n"
 
-def Run(t):
+def Run(t,*args):
     global bpos, count
     print "Running..."
+    t.viz.test= TSimpleVisualizer(name_space='visualizer_test')
+    t.viz.test.viz_frame= t.robot.BaseFrame
     initClient(t)
-    #B = Thread(target=move, args=(t,))
-    #def f ():
-    #  B.run()
-    #A.start() 
-    #t = threading.Timer(5.0, f)
-    #t.start()
-    #ql = t.robot.IK(bpos["L"], arm="LEFT")
-    #qr = t.robot.IK(bpos["R"], arm="RIGHT")
-    #print 'IK solution= {q}'.format(q=q)
-    
-
-#def Run(t, *args):
-        ##global pos, bpos, pbpos
-        ##calculate delta_human
-        #if len(args) >= 2:
-	  #bdl = t.robot.FK(arm=LEFT)
-	  #bdr = t.robot.FK(arm=RIGHT)
-	  
-	  #current_l = args[0]
-	  #default_l = [0.0, 0.03, 0.0175]
-	  #default_l += numpy.ndarray.tolist(tf.transformations.quaternion_from_euler(0.0, 0.0, 0.0))
-	  #delta_l = TransformRightInv(current_l, default_l) #type: list
-
-	  #current_r = args[1]
-	  #default_r = [0.0, -0.03, 0.0175]
-	  #default_r += numpy.ndarray.tolist(tf.transformations.quaternion_from_euler(0.0, 0.0, 0.0))
-	  #delta_r = TransformRightInv(current_r, default_r) #type: list
-	  
-	  #deltaQ_l = delta_l[3:]
-	  #deltaQ_r = delta_r[3:]
-	  
-	  #print delta_l
-	  #print delta_r
-	  #print "Baxter: "
-
-        ##scale delta_human to delta_baxter
-	  #bdelta_l = dp.BaxterDefaultPos.scaleToBaxter(delta_l)
-	  #bdelta_r = dp.BaxterDefaultPos.scaleToBaxter(delta_r)
-	  
-	  #bdelta_l = bdelta_l[:3] + RotToQ(Rodrigues(0.1*InvRodrigues(QToRot(bdelta_l[3:])))).tolist()
-	  #bdelta_r = bdelta_r[:3] + RotToQ(Rodrigues(0.1*InvRodrigues(QToRot(bdelta_r[3:])))).tolist()
-
-        ##calculate delta_baxter
-        ##not sure if the order of arguments to base_geom.Transform is correct
-        ##bdefault_l = [self.bdl.x, self.bdl.y, self.bdl.z]
-        ##bdefault_l += numpy.ndarray.tolist(tf.transformations.quaternion_from_euler(self.bdl.roll, self.bdl.pitch, self.bdl.yaw))
-        
-	  #baxter_l = Transform(bdelta_l, bdl)
-        
-
-        ##bdefault_r = [self.bdr.x, self.bdr.y, self.bdr.z]
-        ##bdefault_r += numpy.ndarray.tolist(tf.transformations.quaternion_from_euler(self.bdr.roll, self.bdr.pitch, self.bdr.yaw))
-	  #baxter_r = Transform(bdelta_r, bdr)
-	  #print bdelta_l, bdelta_r
-	  #print baxter_l, baxter_r
-	  
-	  #print "*****************"
-	  #ql = t.robot.IK(baxter_l, arm=LEFT)
-	  #qr = t.robot.IK(baxter_r, arm=RIGHT)
-	  #print 'IK solution= {q1} {q2}'.format(q1=ql, q2=qr)
-	  
-	  
-	  
-	  
-	  
-	  
-	  
-	  
-	  
-	  
-	  
-	  
-	  
-        #update Baxter position to move to (pos_baxter)
-	#pbpos = copy.copy(bpos)
-        #bpos["L"] = baxter_l
-        #bpos["R"] = baxter_r
-    
-    # def moveArm(*args):
-    #     arm= args[0]
-    #     dp= args[1]
-    #     x= list(t.robot.FK(arm=arm))  #Current end-effector pose
-    #     x_trg= [x[d]+dp[d] for d in range(3)] + x[3:]  #Target
-    #     print 'Moving {arm}-arm to {x}'.format(arm=LRToStr(arm), x=x_trg)
-    #     t.robot.MoveToX(x_trg, dt=4.0, arm=arm)
-'''
-    while(len(pos) != 0):
-
-        if(pos[0] != "Right hand"):
-            println("RIGHT HAND: "  + d) #?
-            # moveArm("RIGHT", d['Right hand'])
-        if(pos[0] != "Left hand"):
-            println("LEFT: "  + d)
-            # moveArm("LEFT", d['Left hand'])
-            from core_tool import *
-            '''
