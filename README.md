@@ -1,5 +1,6 @@
 # Baxter-Teleoperation
 Teleoperation of Baxter using Leap Motion
+
 TODO: Code for Kinect motion tracking
 
 ## DEPENDENCIES
@@ -42,3 +43,4 @@ Run `WebSocketTest.py` first on the server computer and then `rosside.py` and/or
 * **04/14** Completed preliminary integration of Leap Motion and Baxter
 * **04/20** Tested gesture mapping on a small scale
 * **04/24** Working demo. Need to improve precision and eliminate noise.
+* **04/29** Working demo debugged. Arm movement successfully mapped.
