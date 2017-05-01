@@ -32,14 +32,14 @@ class LeapWSHandler(WebSocketHandler):
                         #coordinate system convertion: (corrected)
                         #i. leap (x+, y+, z+) -> ROS (y-, z, x-)
                         s += ("%s^%d^%s^" % (
-                               handType, hand.id, str((-pos.z, -pos.x, pos.y))))
+                               handType, hand.id, str((str(-pos.z), str(-pos.x), str(pos.y)))))
                         # Get the hand's normal vector and direction
                         normal    = hand.palm_normal
                         direction = hand.direction
 
                         pitch = direction.pitch
-                        yaw = normal.roll
-                        roll = direction.yaw
+                        roll = normal.roll
+                        yaw = direction.yaw
 
                         # Calculate the hand's pitch, roll, and yaw angles
                         s += ("%f^%f^%f^" % (
@@ -47,20 +47,24 @@ class LeapWSHandler(WebSocketHandler):
                                 roll,
                                 yaw))
 
+                        pinch = hand.pinch_strength
+                        s += ("%f^\n" % pinch)
+
                         #NOTE: due to coordinate system conversion,
                         #pitch -> angle between negative x-axis and z-x projection
                         #yaw -> angle between positive z-axis and z-y projection
                         #roll -> angle between negative x-axis and x-y projection
 
-                        # Get arm bone
-                        arm = hand.arm
-                        direction = arm.direction
-                        wpos = arm.wrist_position
-                        epos = arm.elbow_position
-                        s += ("%s^%s^%s^\n" % (
-                                str(-direction.z, -direction.x, direction.y),
-                                str(-wpos.z, -wpos.x, wpos.y),
-                                str(-epos.z, -epos.x, epos.y)))
+                        # # Get arm bone
+                        # arm = hand.arm
+                        # direction = arm.direction
+                        # wpos = arm.wrist_position
+                        # epos = arm.elbow_position
+                        # a = (str(-direction.z), str(direction.x), str(direction.y))
+                        # s += ("%s^%s^%s^\n" % (
+                        #         str(a),
+                        #         str((str(-wpos.z), str(wpos.x), str(wpos.y))),
+                        #         str((str(-epos.z), str(epos.x), str(epos.y)))))
 
                 return self.send_data(s)
 
@@ -68,7 +72,7 @@ class LeapWSHandler(WebSocketHandler):
                 # Have the sample listener receive events from the controller
                 LeapWSHandler.controller.add_listener(LeapWSHandler.listener)
                 LeapWSHandler.clients.append(self)
-                self.callback = PeriodicCallback(self.getLeapData, 1000) #10fps
+                self.callback = PeriodicCallback(self.getLeapData, 50) #??fps
                 self.callback.start()
 
         def on_message(self, message):
@@ -96,7 +100,7 @@ def main():
         ])
 
         hs = HTTPServer(app)
-        hs.listen(8888, address="------")
+        hs.listen(8888, "128.237.136.61")
         IOLoop.instance().start()
 
 main()

@@ -6,6 +6,8 @@ from tornado.websocket import websocket_connect
 # import ROS
 import json
 from core_tool import *
+import defaultpos as dp
+reload(dp)
 import tf
 import numpy
 import copy
@@ -26,12 +28,12 @@ bpos = {"L":[0.4795606784002749, 0.568933407474859, 0.18754802195350023, \
              0.05045439425577075, 0.7321941859790739, -0.05684833045624352, \
              0.6768414108512136], 
         "R":[0.44889235508456976, -0.6404624981274808, 0.19186524586206288, \
-            -0.09562397715077178, 0.7314424103831731, 0.0018074254860270165,
-             0.6751627866669149]
+            -0.09562397715077178, 0.7314424103831731, 0.0018074254860270165, \
+            0.6751627866669149]
         }
 
-pbpos = copy.copy(bpos)
 client = None
+is_running = True
 
 justonce = 0
 
@@ -44,21 +46,18 @@ class Client(object):
         self.connect()
         self.dl = copy.copy(pos["L"]) #default left hand position
         self.dr = copy.copy(pos["R"]) #default right hand position
-        #self.bdl = dp.BaxterDefaultPos() #Baxter default left hand position
-        #self.bdr = dp.BaxterDefaultPos("R") #Baxter default right hand position
-        #self.bdl = t.robot.FK(arm=LEFT)
-        #self.bdr = t.robot.FK(arm=RIGHT)
         self.t = t
         self.bdl = copy.copy(bpos["L"])
         self.bdr = copy.copy(bpos["R"])
+        self.gpos_l = 0.0855
+        self.gpos_r = 0.037
         #self.moveToDefault()
-        global pos, bpos
-        #pos["L"] = pos["R"] = bpos["L"] = bpos["R"] = []
+        global pos, bpos, is_running
         print bpos
-        PeriodicCallback(self.tryAgain, 20000, io_loop=self.ioloop).start()
+        is_running = True
+        PeriodicCallback(self.tryAgain, 5000, io_loop=self.ioloop).start()
         print 'callback started\n'
         self.ioloop.start()
-        #print 'init finish\n'
     
     def moveToDefault(self):
         print "Moved to default:"
@@ -76,15 +75,11 @@ class Client(object):
           x_traj[i] = [x[0] - dx * i, x[1] - dy * i, x[2] - dz * i] + x[3:]
         if (x_traj[-1] == None): x_traj = x_traj[:-1]
         if (x_traj[-1] == None): x_traj = x_traj[:-1]
-        t_traj= [i * 2.0 for i in rarnge(len(x_traj))]
-        #print x_traj
 
         c = x_traj
-        #te = [i *2.0 for i in range(len(c))]
         te = [(i+1) *2.0 for i in range(len(c))]
         print 'FollowXTraj',c, te
-        self.t.robot.FollowXTraj(c, te, x_ext = None, arm=LEFT, blocking=False)
-        
+        self.t.robot.FollowXTraj(c, te, x_ext = None, arm=LEFT, blocking=False)       
         
         x = list(self.t.robot.FK(arm=RIGHT)) 
         xc = x[0] - self.bdr[0]
@@ -99,8 +94,6 @@ class Client(object):
         for i in range(1, int(dt+1)):
           x_traj[i] = [x[0] - dx * i, x[1] - dy * i, x[2] - dz * i] + x[3:]
         if (x_traj[-1] == None): x_traj = x_traj[:-1]
-        t_traj= [i * 2.0 for i in range(len(x_traj))]
-        print x_traj
 
         c = x_traj
         te = [i *2.0 for i in range(len(c))]
@@ -117,9 +110,6 @@ class Client(object):
         else:
             print("Connected.")
             self.run()
-        #finally:
-            #self.ioloop.stop()
-            #self.ioloop.close()
 
     def parseLeapLeft(self, l):
         global pos
@@ -140,6 +130,10 @@ class Client(object):
         lquat = numpy.ndarray.tolist(tf.transformations.quaternion_from_euler(
             lang[0], lang[1], lang[2]))
         pos["L"] += lquat
+        #update parameters to control gripper
+        if (len(l) > 6):
+          pinch_strength = float(l[6].encode("ascii"))
+          self.gpos_l = 0.0855 - pinch_strength*0.0855
 
     def parseLeapRight(self, r):
         global pos
@@ -161,18 +155,17 @@ class Client(object):
         rquat = numpy.ndarray.tolist(tf.transformations.quaternion_from_euler(
             rang[0], rang[1], rang[2]))
         pos["R"] += rquat
+        #update parameters to control gripper
+        if (len(r) > 6):
+          pinch_strength = float(r[6].encode("ascii"))
+          self.gpos_r = 0.037 - pinch_strength*0.037
         
     def scaleToBaxter(self,delta):
-        #print "delta0: "
-        #print delta
-        newx = delta[0] *0.8
-        newy = delta[1]*0.8
-        newz = delta[2]*0.8
-        print delta[2], newz
+        newx = delta[0]
+        newy = delta[1]
+        newz = delta[2]
         bdelta = [newx, newy, newz]
         bdelta += delta[3:]
-        #print "bdelta: "
-        #print bdelta
         return bdelta
 
     def parseLeapData(self, msg):
@@ -184,10 +177,10 @@ class Client(object):
         else: r = a[0]
         if (len(a) > 1 and a[1][0].startswith("Right")): r = a[1]
         elif (len(a) > 1): l = a[1]
+        print l, r
         #get absolute 3-d coordinates
         self.parseLeapLeft(l)
         self.parseLeapRight(r)
-        print pos
         
     def renewDefault(self):
         global pos
@@ -198,8 +191,6 @@ class Client(object):
         global pos, bpos
         bdl = self.bdl
         bdr = self.bdr
-        
-        print bdl, bdr
           
         current_l = pos["L"]
         default_l = self.dl
@@ -208,11 +199,6 @@ class Client(object):
         current_r = pos["R"]
         default_r = self.dr
         delta_r = TransformRightInv(current_r, default_r) #type: list
-          
-        print current_l, current_r  
-        print delta_l
-        print delta_r
-        print "Baxter: "
 
         #scale delta_human to delta_baxter
         bdelta_l = self.scaleToBaxter(delta_l)
@@ -225,16 +211,9 @@ class Client(object):
             bdelta_l[3:])))).tolist()
         bdelta_r = bdelta_r[:3] + RotToQ(Rodrigues(0.1*InvRodrigues(QToRot(
             bdelta_r[3:])))).tolist()
-        #bdelta_l[3:]= [0.0,0.0,0.0,1.0]
-        #bdelta_r[3:]= [0.0,0.0,0.0,1.0]
-        
-        print "bdelta:"
-        print bdelta_l, bdelta_r
         
         baxter_l = Transform(bdelta_l, bdl)
         baxter_r = Transform(bdelta_r, bdr)
-        print bdelta_l, bdelta_r
-        print baxter_l, baxter_r
         
         bpos["L"] = baxter_l
         bpos["R"] = baxter_r
@@ -243,7 +222,6 @@ class Client(object):
         global bpos
         print "Trying to solve IK..."
         ql = self.t.robot.IK(bpos["L"], arm=LEFT)
-        print "in move..."
         qr = self.t.robot.IK(bpos["R"], arm=RIGHT)
         print 'IK solution= {q1} {q2}'.format(q1=ql, q2=qr)
         if ql is not None:
@@ -262,9 +240,13 @@ class Client(object):
         if ql != None: self.t.robot.MoveToQ(ql, dt=0.01, arm=LEFT)
         if qr != None: self.t.robot.MoveToQ(qr, dt=0.01, arm=RIGHT)
     
+    def moveGripper(self):
+        self.t.robot.MoveGripper(self.gpos_l, arm=LEFT)
+        self.t.robot.MoveGripper(self.gpos_r, arm=RIGHT)
+    
     @gen.coroutine
     def run(self):
-        global pos, bpos
+        global pos, bpos, is_running
         #c = 0
         self.t.kbhit.Activate()
         try:
@@ -272,10 +254,10 @@ class Client(object):
                 if self.t.kbhit.IsActive():
                     key= self.t.kbhit.KBHit()
                     if key=='q':
+                        is_running = False
                         break;
                 else:
                     break
-                print "aaa"
                 #read message on websocket server
                 msg = yield self.ws.read_message()
                 if msg is None:
@@ -288,7 +270,7 @@ class Client(object):
                     print msg
                     self.parseLeapData(msg)
                     self.leap_to_baxter()
-                    print "************"
+                    print "*******************************************"
                     print pos
                     print bpos
                     self.t.viz.test.AddCube(bpos["L"], [0.2,0.1,0.3], 
@@ -297,24 +279,28 @@ class Client(object):
                         rgb=self.t.viz.test.ICol(2), alpha=0.5, mid=1)
                     (ql, qr) = self.solveIK()
                     self.moveBaxter(ql, qr)
+                    self.moveGripper()
                 else:
                     print 'no msg'
         finally:
             self.t.kbhit.Deactivate()
-            #self.ioloop.stop()
-            #self.ioloop.close()
 
     def tryAgain(self):
+        global is_running
         if self.ws is None:
             print("Lost connection. Trying to reconnect now...")
             self.connect()
+        elif not is_running:
+            print "Stopped.\n"
+            self.ioloop.stop()
+            self.ioloop.close()
+            self.ioloop.clear_instance()
 
 def initClient(t):
     global client, pos
-    print "initClient"
     if (client == None):
-        client = Client("ws://128.237.200.198:8888/ws", 5, t)
-        print "client initlized.\n"
+        client = Client("ws://128.237.136.61:8888/ws", 5, t)
+        print "Teleoperation system closed.\n"
 
 def Run(t,*args):
     global bpos, count
