@@ -44,3 +44,4 @@ Run `WebSocketTest.py` first on the server computer and then `rosside.py` and/or
 * **04/20** Tested gesture mapping on a small scale
 * **04/24** Working demo. Need to improve precision and eliminate noise.
 * **04/29** Working demo debugged. Arm movement successfully mapped.
+* **04/29** Working demo completed. Gripper control added.
