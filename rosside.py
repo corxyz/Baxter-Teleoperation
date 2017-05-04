@@ -161,9 +161,9 @@ class Client(object):
           self.gpos_r = 0.037 - pinch_strength*0.037
         
     def scaleToBaxter(self,delta):
-        newx = delta[0]
-        newy = delta[1]
-        newz = delta[2]
+        newx = delta[0] * 1.2
+        newy = delta[1] * 1.2
+        newz = delta[2] * 1.2
         bdelta = [newx, newy, newz]
         bdelta += delta[3:]
         return bdelta
