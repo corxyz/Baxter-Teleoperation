@@ -49,23 +49,7 @@ class LeapWSHandler(WebSocketHandler):
 
                         pinch = hand.pinch_strength
                         s += ("%f^\n" % pinch)
-
-                        #NOTE: due to coordinate system conversion,
-                        #pitch -> angle between negative x-axis and z-x projection
-                        #yaw -> angle between positive z-axis and z-y projection
-                        #roll -> angle between negative x-axis and x-y projection
-
-                        # # Get arm bone
-                        # arm = hand.arm
-                        # direction = arm.direction
-                        # wpos = arm.wrist_position
-                        # epos = arm.elbow_position
-                        # a = (str(-direction.z), str(direction.x), str(direction.y))
-                        # s += ("%s^%s^%s^\n" % (
-                        #         str(a),
-                        #         str((str(-wpos.z), str(wpos.x), str(wpos.y))),
-                        #         str((str(-epos.z), str(epos.x), str(epos.y)))))
-
+                        
                 return self.send_data(s)
 
         def open(self):
